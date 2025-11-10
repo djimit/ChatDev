@@ -1,6 +1,7 @@
 import os
 import re
 from abc import ABC, abstractmethod
+from typing import Dict, Optional, Any
 
 from camel.agents import RolePlaying
 from camel.messages import ChatMessage
@@ -11,23 +12,30 @@ from chatdev.utils import log_and_print_online, log_arguments
 
 
 class Phase(ABC):
+    """Abstract base class for development phases.
+
+    A Phase represents a single step in the software development workflow,
+    involving conversations between AI agents with specific roles.
+    """
 
     def __init__(self,
-                 assistant_role_name,
-                 user_role_name,
-                 phase_prompt,
-                 role_prompts,
-                 phase_name,
-                 model_type,
-                 log_filepath):
-        """
+                 assistant_role_name: str,
+                 user_role_name: str,
+                 phase_prompt: str,
+                 role_prompts: Dict[str, str],
+                 phase_name: str,
+                 model_type: ModelType,
+                 log_filepath: str) -> None:
+        """Initialize a Phase instance.
 
         Args:
-            assistant_role_name: who receives chat in a phase
-            user_role_name: who starts the chat in a phase
-            phase_prompt: prompt of this phase
-            role_prompts: prompts of all roles
-            phase_name: name of this phase
+            assistant_role_name: Role that receives chat messages in this phase
+            user_role_name: Role that initiates chat messages in this phase
+            phase_prompt: Main prompt template for this phase
+            role_prompts: Dictionary mapping role names to their system prompts
+            phase_name: Unique identifier for this phase
+            model_type: LLM model to use for this phase
+            log_filepath: Path to the log file for this session
         """
         self.seminar_conclusion = None
         self.assistant_role_name = assistant_role_name
@@ -47,7 +55,7 @@ class Phase(ABC):
     @log_arguments
     def chatting(
             self,
-            chat_env,
+            chat_env: ChatEnv,
             task_prompt: str,
             assistant_role_name: str,
             user_role_name: str,
@@ -55,33 +63,37 @@ class Phase(ABC):
             phase_name: str,
             assistant_role_prompt: str,
             user_role_prompt: str,
-            task_type=TaskType.CHATDEV,
-            need_reflect=False,
-            with_task_specify=False,
-            model_type=ModelType.GPT_3_5_TURBO,
-            placeholders=None,
-            chat_turn_limit=10
+            task_type: TaskType = TaskType.CHATDEV,
+            need_reflect: bool = False,
+            with_task_specify: bool = False,
+            model_type: ModelType = ModelType.GPT_3_5_TURBO,
+            placeholders: Optional[Dict[str, str]] = None,
+            chat_turn_limit: int = 10
     ) -> str:
-        """
+        """Execute conversation between two AI agents for this phase.
 
         Args:
-            chat_env: global chatchain environment TODO: only for employee detection, can be deleted
-            task_prompt: user query prompt for building the software
-            assistant_role_name: who receives the chat
-            user_role_name: who starts the chat
-            phase_prompt: prompt of the phase
-            phase_name: name of the phase
-            assistant_role_prompt: prompt of assistant role
-            user_role_prompt: prompt of user role
-            task_type: task type
-            need_reflect: flag for checking reflection
-            with_task_specify: with task specify
-            model_type: model type
-            placeholders: placeholders for phase environment to generate phase prompt
-            chat_turn_limit: turn limits in each chat
+            chat_env: Global chat environment for employee management
+            task_prompt: User's software development task description
+            assistant_role_name: Role that receives messages
+            user_role_name: Role that initiates messages
+            phase_prompt: Template prompt for this phase
+            phase_name: Name identifier for this phase
+            assistant_role_prompt: System prompt for assistant role
+            user_role_prompt: System prompt for user role
+            task_type: Type of task being performed
+            need_reflect: Whether to enable reflection mechanism
+            with_task_specify: Whether to use task specification
+            model_type: LLM model to use for conversations
+            placeholders: Template placeholders for prompt formatting
+            chat_turn_limit: Maximum number of conversation turns (1-100)
 
         Returns:
+            Seminar conclusion text from the conversation
 
+        Raises:
+            ValueError: If required employees not recruited or invalid parameters
+            AssertionError: If chat_turn_limit not in range [1, 100]
         """
 
         if placeholders is None:

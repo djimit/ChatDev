@@ -1,0 +1,39 @@
+# Prometheus configuration for ChatDev monitoring
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'chatdev'
+    environment: 'production'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          # - alertmanager:9093
+
+# Load rules once and periodically evaluate them
+rule_files:
+  - 'alerts.yml'
+
+# Scrape configurations
+scrape_configs:
+  # ChatDev application metrics
+  - job_name: 'chatdev'
+    static_configs:
+      - targets: ['localhost:8000']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # Node exporter for system metrics (optional)
+  - job_name: 'node'
+    static_configs:
+      - targets: ['localhost:9100']
+
+  # Python application metrics
+  - job_name: 'python_app'
+    static_configs:
+      - targets: ['localhost:8000']
+    honor_labels: true

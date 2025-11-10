@@ -52,3 +52,11 @@ structlog>=23.2.0  # Structured logging
 responses>=0.24.1  # Mock HTTP requests
 freezegun>=1.4.0  # Mock datetime
 faker>=21.0.0  # Generate fake data for tests
+
+# Monitoring and observability
+prometheus-client>=0.19.0  # Metrics collection
+psutil>=5.9.6  # System resource monitoring
+
+# Async support
+aiohttp>=3.9.0  # Async HTTP client
+pytest-aiohttp>=1.0.5  # Async testing support

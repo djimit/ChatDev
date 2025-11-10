@@ -1,0 +1,152 @@
+{
+  "dashboard": {
+    "title": "ChatDev Monitoring Dashboard",
+    "tags": ["chatdev", "ai", "monitoring"],
+    "timezone": "browser",
+    "schemaVersion": 16,
+    "version": 0,
+    "refresh": "30s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Phase Execution Duration",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(chatdev_phase_duration_seconds_sum[5m]) / rate(chatdev_phase_duration_seconds_count[5m])",
+            "legendFormat": "{{phase_name}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "s",
+            "label": "Duration"
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "API Call Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(chatdev_api_calls_total[5m])",
+            "legendFormat": "{{api_name}} - {{status}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "reqps",
+            "label": "Requests/sec"
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "API Success Rate",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(rate(chatdev_api_calls_total{status=\"success\"}[5m])) / sum(rate(chatdev_api_calls_total[5m])) * 100",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "reduceOptions": {
+            "calcs": ["lastNotNull"]
+          },
+          "textMode": "value_and_name"
+        },
+        "unit": "percent"
+      },
+      {
+        "id": 4,
+        "title": "Total API Tokens Used",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(chatdev_api_tokens_total)",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "title": "Estimated API Cost",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(chatdev_api_cost_usd)",
+            "refId": "A"
+          }
+        ],
+        "unit": "currencyUSD"
+      },
+      {
+        "id": 6,
+        "title": "Error Rate by Type",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(chatdev_errors_total[5m])",
+            "legendFormat": "{{error_type}}",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Memory Usage",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "chatdev_memory_usage_bytes",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "bytes",
+            "label": "Memory"
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "Agent Interactions",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(chatdev_agent_messages_total[5m])",
+            "legendFormat": "{{from_agent}} → {{to_agent}}",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 9,
+        "title": "Software Generated",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(chatdev_software_generated_total)",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 10,
+        "title": "Active Projects",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "chatdev_active_projects",
+            "refId": "A"
+          }
+        ]
+      }
+    ]
+  }
+}

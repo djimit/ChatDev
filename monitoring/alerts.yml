@@ -1,0 +1,97 @@
+# Prometheus alerting rules for ChatDev
+
+groups:
+  - name: chatdev_alerts
+    interval: 30s
+    rules:
+      # High API error rate
+      - alert: HighAPIErrorRate
+        expr: |
+          (
+            rate(chatdev_api_calls_total{status="failed"}[5m])
+            /
+            rate(chatdev_api_calls_total[5m])
+          ) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High API error rate detected"
+          description: "API error rate is {{ $value | humanizePercentage }} for {{ $labels.api_name }}"
+
+      # Slow API responses
+      - alert: SlowAPIResponses
+        expr: |
+          histogram_quantile(0.95, rate(chatdev_api_duration_seconds_bucket[5m])) > 30
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "API responses are slow"
+          description: "95th percentile API latency is {{ $value }}s for {{ $labels.api_name }}"
+
+      # Phase execution failures
+      - alert: PhaseExecutionFailures
+        expr: |
+          increase(chatdev_phase_executions_total{status="failed"}[15m]) > 3
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Multiple phase execution failures"
+          description: "Phase {{ $labels.phase_name }} has failed {{ $value }} times in the last 15 minutes"
+
+      # High memory usage
+      - alert: HighMemoryUsage
+        expr: |
+          chatdev_memory_usage_bytes > 2e9  # 2GB
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage detected"
+          description: "Memory usage is {{ $value | humanize1024 }}"
+
+      # High error count
+      - alert: HighErrorCount
+        expr: |
+          increase(chatdev_errors_total[15m]) > 10
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High number of errors"
+          description: "{{ $value }} errors of type {{ $labels.error_type }} in the last 15 minutes"
+
+      # API cost alert
+      - alert: HighAPICost
+        expr: |
+          increase(chatdev_api_cost_usd[1h]) > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High API costs detected"
+          description: "API costs have exceeded $10 in the last hour: ${{ $value }}"
+
+      # No active projects (might indicate system issue)
+      - alert: NoActiveProjects
+        expr: |
+          chatdev_active_projects == 0 and changes(chatdev_active_projects[30m]) == 0
+        for: 30m
+        labels:
+          severity: info
+        annotations:
+          summary: "No active projects"
+          description: "No projects have been active for 30 minutes"
+
+      # Service down
+      - alert: ChatDevDown
+        expr: |
+          up{job="chatdev"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "ChatDev service is down"
+          description: "ChatDev metrics endpoint has been down for more than 2 minutes"
