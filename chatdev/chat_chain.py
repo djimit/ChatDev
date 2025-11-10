@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import shutil
+import subprocess
 import time
 from datetime import datetime
 
@@ -10,6 +11,11 @@ from camel.agents import RolePlaying
 from camel.configs import ChatGPTConfig
 from camel.typing import TaskType, ModelType
 from chatdev.chat_env import ChatEnv, ChatEnvConfig
+from chatdev.exceptions import (
+    ConfigurationError,
+    PhaseExecutionError,
+    GitOperationError
+)
 from chatdev.statistics import get_info
 from chatdev.utils import log_and_print_online, now
 
@@ -49,12 +55,47 @@ class ChatChain:
         self.model_type = model_type
         self.code_path = code_path
 
-        with open(self.config_path, 'r', encoding="utf8") as file:
-            self.config = json.load(file)
-        with open(self.config_phase_path, 'r', encoding="utf8") as file:
-            self.config_phase = json.load(file)
-        with open(self.config_role_path, 'r', encoding="utf8") as file:
-            self.config_role = json.load(file)
+        try:
+            with open(self.config_path, 'r', encoding="utf8") as file:
+                self.config = json.load(file)
+        except FileNotFoundError:
+            raise ConfigurationError(
+                f"Configuration file not found: {self.config_path}",
+                config_path=self.config_path
+            )
+        except json.JSONDecodeError as e:
+            raise ConfigurationError(
+                f"Invalid JSON in configuration file: {e}",
+                config_path=self.config_path
+            )
+
+        try:
+            with open(self.config_phase_path, 'r', encoding="utf8") as file:
+                self.config_phase = json.load(file)
+        except FileNotFoundError:
+            raise ConfigurationError(
+                f"Phase configuration file not found: {self.config_phase_path}",
+                config_path=self.config_phase_path
+            )
+        except json.JSONDecodeError as e:
+            raise ConfigurationError(
+                f"Invalid JSON in phase configuration: {e}",
+                config_path=self.config_phase_path
+            )
+
+        try:
+            with open(self.config_role_path, 'r', encoding="utf8") as file:
+                self.config_role = json.load(file)
+        except FileNotFoundError:
+            raise ConfigurationError(
+                f"Role configuration file not found: {self.config_role_path}",
+                config_path=self.config_role_path
+            )
+        except json.JSONDecodeError as e:
+            raise ConfigurationError(
+                f"Invalid JSON in role configuration: {e}",
+                config_path=self.config_role_path
+            )
 
         # init chatchain config and recruitments
         self.chain = self.config["chain"]
@@ -134,14 +175,22 @@ class ChatChain:
                                                            self.chat_turn_limit_default if max_turn_step <= 0 else max_turn_step,
                                                            need_reflect)
             else:
-                raise RuntimeError(f"Phase '{phase}' is not yet implemented in chatdev.phase")
+                raise PhaseExecutionError(
+                    f"Phase '{phase}' is not yet implemented in chatdev.phase",
+                    phase_name=phase,
+                    phase_type=phase_type
+                )
         # For ComposedPhase, we create instance here then conduct the "ComposedPhase.execute" method
         elif phase_type == "ComposedPhase":
             cycle_num = phase_item['cycleNum']
             composition = phase_item['Composition']
-            compose_phase_class = getattr(self.compose_phase_module, phase)
+            compose_phase_class = getattr(self.compose_phase_module, phase, None)
             if not compose_phase_class:
-                raise RuntimeError(f"Phase '{phase}' is not yet implemented in chatdev.compose_phase")
+                raise PhaseExecutionError(
+                    f"Phase '{phase}' is not yet implemented in chatdev.compose_phase",
+                    phase_name=phase,
+                    phase_type=phase_type
+                )
             compose_phase_instance = compose_phase_class(phase_name=phase,
                                                          cycle_num=cycle_num,
                                                          composition=composition,
@@ -151,7 +200,10 @@ class ChatChain:
                                                          log_filepath=self.log_filepath)
             self.chat_env = compose_phase_instance.execute(self.chat_env)
         else:
-            raise RuntimeError(f"PhaseType '{phase_type}' is not yet implemented.")
+            raise PhaseExecutionError(
+                f"PhaseType '{phase_type}' is not yet implemented",
+                phase_type=phase_type
+            )
 
     def execute_chain(self):
         """
@@ -257,23 +309,67 @@ class ChatChain:
             git_online_log = "**[Git Information]**\n\n"
 
             self.chat_env.codes.version += 1
-            os.system("cd {}; git add .".format(self.chat_env.env_dict["directory"]))
-            git_online_log += "cd {}; git add .\n".format(self.chat_env.env_dict["directory"])
-            os.system("cd {}; git commit -m \"v{} Final Version\"".format(self.chat_env.env_dict["directory"], self.chat_env.codes.version))
-            git_online_log += "cd {}; git commit -m \"v{} Final Version\"\n".format(self.chat_env.env_dict["directory"], self.chat_env.codes.version)
+            directory = self.chat_env.env_dict["directory"]
+
+            # Use subprocess.run with proper argument list to prevent command injection
+            try:
+                subprocess.run(
+                    ["git", "add", "."],
+                    cwd=directory,
+                    check=True,
+                    capture_output=True,
+                    text=True
+                )
+                git_online_log += f"git add . (in {directory})\n"
+            except subprocess.CalledProcessError as e:
+                error_msg = f"Failed to stage files with git add"
+                git_online_log += f"Error in git add: {e.stderr}\n"
+                raise GitOperationError(
+                    error_msg,
+                    command="git add .",
+                    stderr=e.stderr,
+                    return_code=e.returncode
+                )
+
+            try:
+                commit_message = f"v{self.chat_env.codes.version} Final Version"
+                subprocess.run(
+                    ["git", "commit", "-m", commit_message],
+                    cwd=directory,
+                    check=True,
+                    capture_output=True,
+                    text=True
+                )
+                git_online_log += f"git commit -m \"{commit_message}\" (in {directory})\n"
+            except subprocess.CalledProcessError as e:
+                # Allow empty commits to not be an error
+                if "nothing to commit" not in e.stderr:
+                    error_msg = f"Failed to commit changes"
+                    git_online_log += f"Error in git commit: {e.stderr}\n"
+                    raise GitOperationError(
+                        error_msg,
+                        command=f"git commit -m \"{commit_message}\"",
+                        stderr=e.stderr,
+                        return_code=e.returncode
+                    )
+                git_online_log += f"Nothing to commit (working tree clean)\n"
+
             log_and_print_online(git_online_log)
 
             git_info = "**[Git Log]**\n\n"
-            import subprocess
 
-            # execute git log
-            command = "cd {}; git log".format(self.chat_env.env_dict["directory"])
-            completed_process = subprocess.run(command, shell=True, text=True, stdout=subprocess.PIPE)
-
-            if completed_process.returncode == 0:
+            # Execute git log safely
+            try:
+                completed_process = subprocess.run(
+                    ["git", "log"],
+                    cwd=directory,
+                    text=True,
+                    capture_output=True,
+                    check=True
+                )
                 log_output = completed_process.stdout
-            else:
-                log_output = "Error when executing " + command
+            except subprocess.CalledProcessError as e:
+                log_output = f"Error when executing git log: {e.stderr}"
 
             git_info += log_output
             log_and_print_online(git_info)
