@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import time
 from datetime import datetime
+from typing import Dict, List, Optional, Tuple, Any
 
 from camel.agents import RolePlaying
 from camel.configs import ChatGPTConfig
@@ -20,7 +21,21 @@ from chatdev.statistics import get_info
 from chatdev.utils import log_and_print_online, now
 
 
-def check_bool(s):
+def check_bool(s: str) -> bool:
+    """Convert string to boolean value.
+
+    Args:
+        s: String to convert (case-insensitive)
+
+    Returns:
+        True if string is 'true' (case-insensitive), False otherwise
+
+    Example:
+        >>> check_bool("true")
+        True
+        >>> check_bool("False")
+        False
+    """
     return s.lower() == "true"
 
 
@@ -145,23 +160,38 @@ class ChatChain:
                                          log_filepath=self.log_filepath)
             self.phases[phase] = phase_instance
 
-    def make_recruitment(self):
-        """
-        recruit all employees
-        Returns: None
+    def make_recruitment(self) -> None:
+        """Recruit all employees for the development team.
 
+        Iterates through the configured recruitment list and adds each
+        employee to the chat environment.
+
+        Returns:
+            None
+
+        Raises:
+            EmployeeNotFoundError: If an employee cannot be recruited
         """
         for employee in self.recruitments:
             self.chat_env.recruit(agent_name=employee)
 
-    def execute_step(self, phase_item: dict):
-        """
-        execute single phase in the chain
+    def execute_step(self, phase_item: Dict[str, Any]) -> None:
+        """Execute a single phase in the development chain.
+
         Args:
-            phase_item: single phase configuration in the ChatChainConfig.json
+            phase_item: Phase configuration dictionary containing:
+                - phase (str): Name of the phase to execute
+                - phaseType (str): Type of phase (SimplePhase or ComposedPhase)
+                - max_turn_step (int): Maximum conversation turns (SimplePhase only)
+                - need_reflect (str): Whether to enable reflection (SimplePhase only)
+                - cycleNum (int): Number of cycles (ComposedPhase only)
+                - Composition (list): Phase composition (ComposedPhase only)
 
         Returns:
+            None
 
+        Raises:
+            PhaseExecutionError: If phase is not implemented or phaseType is invalid
         """
 
         phase = phase_item['phase']
@@ -205,22 +235,36 @@ class ChatChain:
                 phase_type=phase_type
             )
 
-    def execute_chain(self):
-        """
-        execute the whole chain based on ChatChainConfig.json
-        Returns: None
+    def execute_chain(self) -> None:
+        """Execute the entire development chain based on ChatChainConfig.json.
 
+        Iterates through all configured phases and executes them sequentially,
+        passing the chat environment between phases.
+
+        Returns:
+            None
+
+        Raises:
+            PhaseExecutionError: If any phase fails to execute
         """
         for phase_item in self.chain:
             self.execute_step(phase_item)
 
-    def get_logfilepath(self):
-        """
-        get the log path (under the software path)
-        Returns:
-            start_time: time for starting making the software
-            log_filepath: path to the log
+    def get_logfilepath(self) -> Tuple[str, str]:
+        """Get the log file path for this software project.
 
+        Generates a timestamped log file path in the WareHouse directory
+        based on project name, organization name, and start time.
+
+        Returns:
+            Tuple containing:
+                - start_time (str): Timestamp when project started (format: YYYYmmddHHMMSS)
+                - log_filepath (str): Full path to the log file
+
+        Example:
+            >>> start_time, log_path = self.get_logfilepath()
+            >>> print(log_path)
+            '/path/to/WareHouse/Calculator_TestOrg_20240110120000.log'
         """
         start_time = now()
         filepath = os.path.dirname(__file__)
@@ -232,11 +276,23 @@ class ChatChain:
                                     "{}.log".format("_".join([self.project_name, self.org_name, start_time])))
         return start_time, log_filepath
 
-    def pre_processing(self):
-        """
-        remove useless files and log some global config settings
-        Returns: None
+    def pre_processing(self) -> None:
+        """Perform pre-processing tasks before starting the development chain.
 
+        This includes:
+        - Removing temporary files if clear_structure is enabled
+        - Creating the software directory
+        - Copying configuration files to the project directory
+        - Copying existing code for incremental development
+        - Logging initialization information
+        - Self-improving the task prompt if enabled
+
+        Returns:
+            None
+
+        Raises:
+            FileOperationError: If file operations fail
+            ConfigurationError: If configuration is invalid
         """
         if self.chat_env.config.clear_structure:
             filepath = os.path.dirname(__file__)
@@ -294,11 +350,22 @@ class ChatChain:
         else:
             self.chat_env.env_dict['task_prompt'] = self.task_prompt_raw
 
-    def post_processing(self):
-        """
-        summarize the production and move log files to the software directory
-        Returns: None
+    def post_processing(self) -> None:
+        """Perform post-processing tasks after development chain completion.
 
+        This includes:
+        - Writing metadata for the generated software
+        - Performing git operations if git_management is enabled
+        - Logging software information and duration
+        - Cleaning up temporary files (__pycache__)
+        - Moving log files to the software directory
+
+        Returns:
+            None
+
+        Raises:
+            GitOperationError: If git operations fail
+            FileOperationError: If file operations fail
         """
 
         self.chat_env.write_meta()
@@ -405,16 +472,27 @@ class ChatChain:
                     os.path.join(root + "/WareHouse", "_".join([self.project_name, self.org_name, self.start_time]),
                                  os.path.basename(self.log_filepath)))
 
-    # @staticmethod
-    def self_task_improve(self, task_prompt):
-        """
-        ask agent to improve the user query prompt
+    def self_task_improve(self, task_prompt: str) -> str:
+        """Use an AI agent to improve and refine the user's task prompt.
+
+        Engages a Prompt Engineer agent to rewrite the user's task description
+        into a more detailed and specific prompt that helps ensure the LLM
+        generates correct, runnable software.
+
         Args:
-            task_prompt: original user query prompt
+            task_prompt: Original user query prompt describing the software to build
 
         Returns:
-            revised_task_prompt: revised prompt from the prompt engineer agent
+            Revised and improved task prompt (max 200 words)
 
+        Raises:
+            APIError: If the API call to improve the prompt fails
+
+        Example:
+            >>> original = "Create a calculator"
+            >>> improved = self.self_task_improve(original)
+            >>> print(improved)
+            "Create a desktop calculator application with basic arithmetic..."
         """
         self_task_improve_prompt = """I will give you a short description of a software design requirement, 
 please rewrite it into a detailed prompt that can make large language model know how to make this software better based this prompt,

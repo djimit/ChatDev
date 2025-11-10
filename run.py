@@ -1,20 +1,26 @@
 # =========== Copyright 2023 @ CAMEL-AI.org. All Rights Reserved. ===========
-# Licensed under the Apache License, Version 2.0 (the “License”);
+# Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
 #     http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an “AS IS” BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # =========== Copyright 2023 @ CAMEL-AI.org. All Rights Reserved. ===========
+"""Main entry point for ChatDev application.
+
+This module provides the command-line interface for running ChatDev,
+a multi-agent framework for automated software development.
+"""
 import argparse
 import logging
 import os
 import sys
+from typing import Tuple
 
 from camel.typing import ModelType
 
@@ -24,15 +30,25 @@ sys.path.append(root)
 from chatdev.chat_chain import ChatChain
 
 
-def get_config(company):
-    """
-    return configuration json files for ChatChain
-    user can customize only parts of configuration json files, other files will be left for default
+def get_config(company: str) -> Tuple[str, str, str]:
+    """Get configuration file paths for ChatChain.
+
+    User can customize parts of configuration files. If a custom config
+    doesn't exist, defaults to the Default configuration.
+
     Args:
-        company: customized configuration name under CompanyConfig/
+        company: Customized configuration name under CompanyConfig/
+                 (e.g., "Default", "Art", "Human", "Incremental")
 
     Returns:
-        path to three configuration jsons: [config_path, config_phase_path, config_role_path]
+        Tuple of three configuration file paths:
+            - config_path: Path to ChatChainConfig.json
+            - config_phase_path: Path to PhaseConfig.json
+            - config_role_path: Path to RoleConfig.json
+
+    Example:
+        >>> paths = get_config("Art")
+        >>> chain_config, phase_config, role_config = paths
     """
     config_dir = os.path.join(root, "CompanyConfig", company)
     default_config_dir = os.path.join(root, "CompanyConfig", "Default")
