@@ -14,6 +14,6 @@ def index():
     return render_template('index.html')
 if __name__ == "__main__":
     try:
-        app.run(debug=True)
+        app.run(debug=False)
     except ImportError:
         print("Error: The watchdog library is not installed. Please install it by running 'pip install watchdog' in your terminal.")

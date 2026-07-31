@@ -179,7 +179,7 @@ class ChatEnv:
         meta_filename = "meta.txt"
         with open(os.path.join(directory, meta_filename), "w", encoding="utf-8") as writer:
             writer.write("{}:\n{}\n\n".format("Task", self.env_dict['task_prompt']))
-            writer.write("{}:\n{}\n\n".format("Config", self.config.__str__()))
+            writer.write("{}:\n{}\n\n".format("Config", "Runtime configuration not persisted"))
             writer.write("{}:\n{}\n\n".format("Roster", ", ".join(self.roster.agents)))
             writer.write("{}:\n{}\n\n".format("Modality", self.env_dict['modality']))
             writer.write("{}:\n{}\n\n".format("Ideas", self.env_dict['ideas']))
