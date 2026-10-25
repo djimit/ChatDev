@@ -11,4 +11,4 @@ tiktoken==0.4.0
 virtualenv>=20.26.6
 Werkzeug>=3.0.3
 Markdown==3.4.4
-Pillow>=12.2.0
+Pillow>=13.0.0

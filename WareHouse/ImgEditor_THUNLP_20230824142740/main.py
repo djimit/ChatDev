@@ -78,7 +78,7 @@ class ImageEditor:
                 else:
                     new_width = int(canvas_height * image_ratio)
                     new_height = canvas_height
-                self.current_image = self.current_image.resize((new_width, new_height), Image.ANTIALIAS)
+                self.current_image = self.current_image.resize((new_width, new_height), Image.Resampling.LANCZOS)
             self.image_tk = ImageTk.PhotoImage(self.current_image)
             self.canvas.create_image(0, 0, anchor=tk.NW, image=self.image_tk)
     def undo(self):
